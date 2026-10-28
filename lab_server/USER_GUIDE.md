@@ -26,6 +26,16 @@ your laptop                                            tassan
 - **The lab key** (ask Youssef; he sends it privately).
 - On your laptop: `git`, and on macOS / Linux `python3` and `curl` (already there on macOS); on Windows, PowerShell.
 
+## Mac: the quick way
+
+With the VPN on, paste this in a terminal and answer its questions (your tassan login, the lab key, your tassan password once):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yolaatar/benchmark-local-llm/main/lab_server/client/install-mac.sh | bash
+```
+
+It installs the scripts and Claude Code, sets up the tunnel so it needs no password, adds the `claude-lab` / `opencode-lab` shortcuts and runs a check. Then, in a new terminal, from any project: `claude-lab`. It opens the tunnel by itself and closes it when you quit, so on a Mac you can skip the rest of this setup and step 2 of "Every time". Running the installer again is safe (it updates the scripts).
+
 ## One-time setup (on your laptop)
 
 ### 1. Get the scripts
@@ -94,7 +104,7 @@ ssh-copy-id you@ge.polymtl.ca@tassan.neuro.polymtl.ca     # asks your tassan pas
 
 1. **Connect the VPN.**
 2. **Open the tunnel** in a terminal, and leave that terminal open while you work. It prints `Tunnel to tassan... open`, asks for your tassan password (unless you did step 5), then stays silent: that's normal, it's working.
-   - macOS / Linux: `tassan-tunnel`
+   - macOS / Linux: nothing to do, `claude-lab`, `opencode-lab` and `tassan-check` open it themselves (and close it when the last one quits). `tassan-tunnel` still opens one by hand, for your own scripts; `tassan-tunnel status` / `stop` check or close the background one.
    - Windows: `cd <...>\lab_server\client; .\tassan-tunnel.ps1 -User "you@ge.polymtl.ca"`
 3. **Check** in a second terminal (optional, but it saves guessing):
    - macOS / Linux: `tassan-check`
