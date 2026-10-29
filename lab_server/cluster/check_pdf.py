@@ -35,7 +35,7 @@ model = models["data"][0]["id"]
 
 body = {
     "model": model,
-    "max_tokens": 2048,
+    "max_tokens": 12000,   # a thinking model reasons first: a small budget can end before any answer
     "messages": [{"role": "user", "content": [
         {"type": "document", "title": pdf.name,
          "source": {"type": "base64", "media_type": "application/pdf", "data": base64.b64encode(pdf.read_bytes()).decode()}},
@@ -50,7 +50,17 @@ try:
     answer = json.load(urllib.request.urlopen(req, timeout=600))
 except urllib.error.HTTPError as e:
     sys.exit(f"HTTP {e.code}: {e.read().decode()[:600]}\n(400 mentioning 'document': the proxy is not in front of vLLM)")
-text = "\n".join(b.get("text", "") for b in answer.get("content", []) if b.get("type") == "text")
+blocks = answer.get("content", [])
+text = "\n".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
+thinking = "\n".join(b.get("thinking", "") for b in blocks if b.get("type") == "thinking").strip()
 usage = answer.get("usage", {})
-print(f"OK, {usage.get('input_tokens', '?')} input tokens (page images make this much larger than the text alone).\n")
-print(text)
+print(f"OK, {usage.get('input_tokens', '?')} input tokens (page images make this much larger than the text alone), "
+      f"{usage.get('output_tokens', '?')} output tokens, stop: {answer.get('stop_reason')}.\n")
+if text:
+    print(text)
+else:
+    print(f"No answer text (block types: {[b.get('type') for b in blocks]}).")
+    if answer.get("stop_reason") == "max_tokens":
+        print("The model used all max_tokens before answering: raise max_tokens in this script.")
+    if thinking:
+        print(f"\nEnd of its reasoning:\n...{thinking[-1500:]}")
