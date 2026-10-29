@@ -13,6 +13,7 @@
 TASSAN_HOST=${TASSAN_HOST:-tassan.neuro.polymtl.ca}
 run_dir=$HOME/.tassan/run
 ctl=$run_dir/tunnel.sock   # control socket of the background tunnel (ssh -M)
+mcp_port=8002              # web search MCP, same port both sides (SEARCH_MCP_PORT in lab_server/cluster/vllm.env)
 
 tassan_tunnel_alive() { [ -e "$ctl" ] && ssh -S "$ctl" -O check "$TASSAN_HOST" 2>/dev/null; }
 
@@ -31,8 +32,24 @@ tassan_tunnel_open() {
     echo "Opening the tunnel to tassan..."
     # -f returns once the forwards are up (ExitOnForwardFailure), after any password prompt
     ssh -f -N -M -S "$ctl" -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ConnectTimeout=15 \
-        -l "$TASSAN_USER" -L 8001:127.0.0.1:8000 -L 11435:127.0.0.1:11434 "$TASSAN_HOST" \
+        -l "$TASSAN_USER" -L 8001:127.0.0.1:8000 -L 11435:127.0.0.1:11434 -L "$mcp_port:127.0.0.1:8002" "$TASSAN_HOST" \
         || { echo "The tunnel did not open. Wrong tassan login or password? (login: $TASSAN_USER)"; exit 1; }
+}
+
+# Web search for the agents: the lab-search MCP server on tassan, through the tunnel. Writes a Claude Code
+# --mcp-config file with the lab key and prints its path, or prints nothing if the search doesn't answer
+# (off on tassan, or a tunnel opened by hand without the port): the agent then just has no web search.
+tassan_mcp_config() {
+    local code f=$run_dir/mcp.json
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -X POST "http://127.0.0.1:$mcp_port/mcp" 2>/dev/null || true)
+    if [ "$code" != 401 ]; then
+        echo "Note: no web search this session (nothing answers on 127.0.0.1:$mcp_port: tunnel opened by hand without it, or search off on tassan)." >&2
+        return 0
+    fi
+    mkdir -p "$run_dir"
+    (umask 077; printf '{"mcpServers": {"lab-search": {"type": "http", "url": "http://127.0.0.1:%s/mcp", "headers": {"Authorization": "Bearer %s"}}}}\n' \
+        "$mcp_port" "$token" > "$f")
+    printf '%s' "$f"
 }
 
 # Several scripts can share one background tunnel: each registers its pid, the last one out closes it.

@@ -16,7 +16,11 @@ lab_server/
     setup_vllm.sh        one-time: uv + vLLM venv + weights + API key
     serve_vllm.sh        start in tmux "vllm", wait until it answers
     stop_vllm.sh         stop, close the tmux session, kill leftovers, give the card back
-    status.sh            servers, GPU memory, live running/waiting requests
+    status.sh            servers, GPU memory, live running/waiting requests, web search
+    setup_search.sh      one-time: SearXNG + the web search MCP server, in venvs under ~/llm-bench/search
+    serve_search.sh      start SearXNG (tmux "searxng") and the MCP (tmux "search-mcp"); serve_vllm.sh calls it
+    stop_search.sh       stop both
+    search_mcp.py        the MCP server: web_search (SearXNG) and fetch, lab key required
     run_concurrency.sh   Phase 3 sweep: vLLM, then Ollama NUM_PARALLEL=1 and 4
   client/                on each Windows laptop
     deploy-tassan.ps1    push cluster scripts + concurrency_bench.py; -Fetch brings results back

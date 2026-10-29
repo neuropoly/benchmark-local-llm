@@ -19,5 +19,13 @@ if [ -s "$LLMBENCH/vllm.key" ] && curl -sf -H "Authorization: Bearer $(cat "$LLM
 else
     echo "down"
 fi
+echo "== Web search (MCP for the agents)"
+if [ ! -x "$LLMBENCH/search/mcp-venv/bin/python" ]; then
+    echo "not installed (setup_search.sh)"
+else
+    code() { curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$@" 2>/dev/null || true; }
+    [ "$(code "http://127.0.0.1:$SEARXNG_PORT/healthz")" = 200 ] && echo "SearXNG up on 127.0.0.1:$SEARXNG_PORT" || echo "SearXNG down"
+    [ "$(code -X POST "http://127.0.0.1:$SEARCH_MCP_PORT/mcp")" = 401 ] && echo "MCP up on 127.0.0.1:$SEARCH_MCP_PORT" || echo "MCP down (bash serve_search.sh)"
+fi
 echo "== Ollama"
 curl -sf http://127.0.0.1:11434/api/ps 2>/dev/null || echo "down"

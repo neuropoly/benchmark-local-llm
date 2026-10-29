@@ -37,6 +37,14 @@
       }
     }
   },
+  "mcp": {
+    "lab-search": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8002/mcp",
+      "headers": { "Authorization": "Bearer {env:TASSAN_VLLM_KEY}" },
+      "enabled": true
+    }
+  },
   "model": "tassan/qwen3-coder-next",
   "small_model": "tassan/qwen3-coder-next"
 }
