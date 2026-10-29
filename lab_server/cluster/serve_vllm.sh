@@ -51,6 +51,10 @@ for i in $(seq 1 $((${STARTUP_TIMEOUT:-2700} / 5))); do
         curl -s -H "Authorization: Bearer $(cat "$KEY")" "http://127.0.0.1:$PORT/v1/models"; echo
         nvidia-smi -i "$GPU" --query-gpu=index,memory.used,memory.total --format=csv
         trap - INT TERM
+        # The agents' web search goes with it, if installed (setup_search.sh). Its failure doesn't stop vLLM.
+        if [ -x "$LLMBENCH/search/mcp-venv/bin/python" ]; then
+            bash "$HERE/serve_search.sh" || echo "Web search did not start (vLLM is fine). Retry: bash $HERE/serve_search.sh"
+        fi
         exit 0
     fi
     if ! tmux has-session -t "$SESSION" 2>/dev/null; then

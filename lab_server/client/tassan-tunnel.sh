@@ -2,6 +2,7 @@
 # SSH tunnel to the lab servers on tassan (macOS/Linux version of tassan-tunnel.ps1).
 #   vLLM   tassan 127.0.0.1:8000  -> here 127.0.0.1:8001
 #   Ollama tassan 127.0.0.1:11434 -> here 127.0.0.1:11435
+#   web search MCP tassan 127.0.0.1:8002 -> here 127.0.0.1:8002
 # The launchers (claude-tassan.sh, opencode-tassan.sh) open and close it by themselves, so this is only
 # for doing it by hand, e.g. for your own scripts:
 #   ./tassan-tunnel.sh           open it in this terminal, Ctrl+C to close
@@ -24,8 +25,8 @@ case ${1:-open} in
         else rm -f "$ctl"; echo "No background tunnel to close (a tunnel opened by hand closes with Ctrl+C in its terminal)."; fi ;;
     open)
         USER_AT=${TASSAN_USER:?no tassan login: run install-mac.sh, or set TASSAN_USER=you@ge.polymtl.ca}
-        echo "Tunnel to $TASSAN_HOST open (vLLM on 127.0.0.1:8001, Ollama on 127.0.0.1:11435). Ctrl+C to close."
+        echo "Tunnel to $TASSAN_HOST open (vLLM on 127.0.0.1:8001, Ollama on 127.0.0.1:11435, web search on 127.0.0.1:$mcp_port). Ctrl+C to close."
         exec ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -l "$USER_AT" \
-            -L 8001:127.0.0.1:8000 -L 11435:127.0.0.1:11434 "$TASSAN_HOST" ;;
+            -L 8001:127.0.0.1:8000 -L 11435:127.0.0.1:11434 -L "$mcp_port:127.0.0.1:8002" "$TASSAN_HOST" ;;
     *) echo "Usage: $0 [open|status|stop]"; exit 1 ;;
 esac
