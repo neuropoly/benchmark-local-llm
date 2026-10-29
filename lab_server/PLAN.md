@@ -8,7 +8,9 @@ lab_server/
   PLAN.md                this runbook
   USER_GUIDE.md          one page for lab members
   cluster/               copied to tassan:~/llm-bench/lab_server/ by deploy-tassan.ps1
-    vllm.env             model, GPU (card 1), set_slot command, port, limits (edit here, nothing else)
+    vllm.env             default model, GPU (card 1), set_slot command, port, limits
+    models.conf          the models switch_model.sh can serve
+    switch_model.sh      change the served model (choice saved in ~/llm-bench/model.env)
     tmux_lib.sh          start/stop a server in its own tmux session (set_slot first, session closes with the server)
     preflight.sh         read-only check: tools, set_slot, our card free, disk, network, running servers
     serve_ollama.sh      start the round-2 Ollama in tmux "ollama" on our card (+ 64k "-cc" variant)
