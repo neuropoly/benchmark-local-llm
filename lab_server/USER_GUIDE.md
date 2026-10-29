@@ -26,7 +26,7 @@ your laptop                                            tassan
 - **The lab key** (ask Youssef; he sends it privately).
 - On your laptop: `git`, and on macOS / Linux `python3` and `curl` (already there on macOS); on Windows, PowerShell.
 
-## macOs
+## Installation on macOs
 
 With the VPN on, paste this in a terminal and answer its questions (your tassan login, the lab key, your tassan password once):
 
@@ -39,7 +39,10 @@ It installs the scripts and Claude Code, sets up the tunnel so it needs no passw
 When asked for the key, do the following:
 XXX
 
-## Linux/Windows
+When asked "Also install OpenCode, the open-source agent? [y/N]", say N (we recommend ClaudeCode).
+
+
+## Installation on Linux/Windows
 
 ### 1. Get the scripts
 
@@ -71,7 +74,7 @@ The file stays on your laptop. Never commit it, paste it in a chat channel, or s
 One is enough; both work with the lab model.
 
 - **Claude Code**
-  - macOS / Linux: `curl -fsSL https://claude.ai/install.sh | bash` (or `brew install --cask claude-code`)
+  - Linux: `curl -fsSL https://claude.ai/install.sh | bash` (or `brew install --cask claude-code`)
   - Windows (PowerShell): `irm https://claude.ai/install.ps1 | iex`
   - With the lab launcher it talks only to the lab server: no Anthropic subscription is used, and you shouldn't have to log in.
 - **OpenCode** (open source)
@@ -80,7 +83,7 @@ One is enough; both work with the lab model.
 
 Check: `claude --version` or `opencode --version`.
 
-### 4. Shortcuts (recommended, macOS / Linux)
+### 4. Shortcuts
 
 So you can type `claude-lab` in any project instead of the full path. Add to `~/.zshrc` (or `~/.bashrc`), then open a new terminal:
 
