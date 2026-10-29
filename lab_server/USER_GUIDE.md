@@ -26,7 +26,7 @@ your laptop                                            tassan
 - **The lab key** (ask Youssef; he sends it privately).
 - On your laptop: `git`, and on macOS / Linux `python3` and `curl` (already there on macOS); on Windows, PowerShell.
 
-## Mac: the quick way
+## macOs
 
 With the VPN on, paste this in a terminal and answer its questions (your tassan login, the lab key, your tassan password once):
 
@@ -36,7 +36,10 @@ curl -fsSL https://raw.githubusercontent.com/yolaatar/benchmark-local-llm/main/l
 
 It installs the scripts and Claude Code, sets up the tunnel so it needs no password, adds the `claude-lab` / `opencode-lab` shortcuts and runs a check. Then, in a new terminal, from any project: `claude-lab`. It opens the tunnel by itself and closes it when you quit, so on a Mac you can skip the rest of this setup and step 2 of "Every time". Running the installer again is safe (it updates the scripts).
 
-## One-time setup (on your laptop)
+When asked for the key, do the following:
+XXX
+
+## Linux/Windows
 
 ### 1. Get the scripts
 
@@ -50,7 +53,7 @@ The scripts you need are in `~/benchmark-local-llm/lab_server/client/`. Later, `
 
 Save it once in a file in your home folder; every script reads it from there. Replace `PASTE-THE-KEY-HERE` with the key you received (it starts with `lab-`), keep the quotes:
 
-- macOS / Linux:
+- Linux:
   ```bash
   (umask 077; printf '%s' 'PASTE-THE-KEY-HERE' > ~/.tassan_vllm_key)
   cat ~/.tassan_vllm_key        # check: prints the key, nothing else
