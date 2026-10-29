@@ -215,6 +215,8 @@ print(r.choices[0].message.content)
 - **Give it the whole task in one message**, with the files involved and how to check the result (for example "the tests in test/morphometrics must pass"). It works through it on its own.
 - **Be patient:** it reads your files and thinks before acting. Several minutes on a real task is normal.
 - **Use a clone, not your only copy,** for big refactors.
+- **PDFs work**, whether the agent opens them or you attach them with `@paper.pdf`. A long PDF uses a lot of context, so point the agent to the pages you care about ("read pages 3 to 6 of paper.pdf").
+- **For a question about a figure, ask it to read that page again** ("read the page with Figure 2 and describe it"). Otherwise it may answer from the caption and its memory of the paper, and invent details such as colors. If it got a figure wrong, start a fresh session (`/clear`) rather than correcting it: it tends to stick to its first answer.
 
 ## Sharing the GPU
 
@@ -235,4 +237,5 @@ print(r.choices[0].message.content)
 | Claude Code asks you to log in | it was started as plain `claude`, not with the launcher | use `claude-lab` (or `claude-tassan.sh`) |
 | `400 ... maximum context length` | the agent was started without the lab launcher or settings | use the launcher, or the variables in "Setting it up by hand" |
 | The agent answers in text but never edits files | the model didn't make a tool call | run `tassan-check`; if it shows no tool call, tell Youssef |
+| `API Error: 400 ... 'document'` after reading a PDF | the server's PDF converter is off | tell Youssef. Meanwhile the session is stuck: go back to before the PDF (Esc twice, or `/rewind`) or start over with `/clear` |
 | Very slow, even for short answers | many people are using it, or a long task is running | wait, or try again later |

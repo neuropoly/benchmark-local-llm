@@ -18,7 +18,8 @@ lab_server/
     setup_vllm.sh        one-time: uv + vLLM venv + weights + API key
     serve_vllm.sh        start in tmux "vllm", wait until it answers
     stop_vllm.sh         stop, close the tmux session, kill leftovers, give the card back
-    status.sh            servers, GPU memory, live running/waiting requests
+    status.sh            servers, GPU memory, live running/waiting requests, PDF proxy
+    doc_proxy.py         proxy on PORT in front of vLLM: PDF "document" blocks -> page text + page images
     run_concurrency.sh   Phase 3 sweep: vLLM, then Ollama NUM_PARALLEL=1 and 4
   client/                on each Windows laptop
     deploy-tassan.ps1    push cluster scripts + concurrency_bench.py; -Fetch brings results back

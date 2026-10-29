@@ -30,6 +30,22 @@ tail -f ~/llm-bench/logs/vllm.log
 - **After a tassan reboot**, the server is not restarted automatically: run `bash serve_vllm.sh` again.
 - A normal start takes a few minutes (loading the weights, compiling, warming up).
 
+## PDFs (the proxy in front of vLLM)
+
+When the agent opens a PDF with its Read tool, Claude Code sends the pages as images, which vLLM accepts. But a PDF attached to a message (for example with `@paper.pdf`) can go as an Anthropic `document` block instead. vLLM doesn't accept that block type (not in 0.32 nor on its main branch yet) and rejects the request with `400 ... 'document'`; the PDF stays in the history, so the whole session is stuck (issue #4). A small proxy fixes it:
+
+```
+clients --tunnel--> 127.0.0.1:8000  doc_proxy.py  --> 127.0.0.1:8010  vLLM
+                    (PORT)          document blocks -> page text + page images   (VLLM_PORT)
+```
+
+- Each PDF becomes the text of its pages, plus an image of the pages that have figures, vector plots or almost no text (scans), at most 12 per PDF. Images are sent only if the model has a vision encoder (Qwen3.6-27B does, the 80B coder doesn't): `PDF_PAGE_IMAGES=auto` in `vllm.env` checks the model's `config.json`.
+- Everything else goes through untouched, streaming included. A converted PDF is cached, so the same PDF coming back on every turn of a session is converted once.
+- `setup_vllm.sh` installs it (its own small venv, `~/llm-bench/proxy-venv`; it reads PDFs with pypdfium2). `serve_vllm.sh` starts it in the tmux session `doc-proxy`, `stop_vllm.sh` stops it, `status.sh` shows it. Log: `~/llm-bench/logs/doc-proxy.log` (one line per converted PDF).
+- Clients see no change: the tunnel still goes to port 8000.
+- To check it end to end, send a PDF as a `document` block yourself: `~/llm-bench/proxy-venv/bin/python check_pdf.py paper.pdf "What does Figure 1 show?"`. It prints the model's answer, and `doc-proxy.log` gets a "converted PDF" line.
+- If the proxy itself causes trouble, `DOC_PROXY=0` in `vllm.env` and a restart put vLLM back on port 8000 directly (PDFs then fail again).
+
 ## Changing the model
 
 ```bash
@@ -72,6 +88,7 @@ Default model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B
 - **A first start with a new model or vLLM version compiles GPU kernels** (FlashInfer): from minutes to over an hour, in `~/.cache/flashinfer`, done once. Keep `JIT_JOBS` at 4 or less: each compiler can take 5 to 7 GB of RAM and the slot has about 46 GB. With 8 jobs, the first 80B start stalled for 3 hours.
 - **Compiler errors** (`CUDA compiler and CUDA toolkit headers are incompatible`, `Unsupported .version`): the CUDA compiler packages in the venv don't match the runtime. `bash setup_vllm.sh` realigns them.
 - **Tool calls come back as text:** check `TOOL_PARSER` in `vllm.env`.
+- **Users get `400 ... 'document'` when a PDF is read:** the PDF proxy is not running (`status.sh` says so). If `serve_vllm.sh` printed "the PDF proxy is not installed", run `bash setup_vllm.sh`, then `bash stop_vllm.sh && bash serve_vllm.sh`. A PDF that fails to convert shows as a one-line note in the conversation; details in `~/llm-bench/logs/doc-proxy.log`.
 
 ## Updating the scripts
 
