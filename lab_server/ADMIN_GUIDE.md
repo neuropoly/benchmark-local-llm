@@ -47,12 +47,22 @@ clients --tunnel--> 127.0.0.1:8000  doc_proxy.py  --> 127.0.0.1:8010  vLLM
 
 ## Changing the model
 
-1. In `vllm.env`, change `MODEL`, `SERVED_NAME`, `TOOL_PARSER` and `EXTRA_ARGS` together. Tested setups are listed there as comments.
-2. `bash setup_vllm.sh` downloads the new weights (it skips what is already installed).
-3. `bash stop_vllm.sh && bash serve_vllm.sh`
-4. If `SERVED_NAME` is new, add it to `client/opencode.json` (copy an existing model entry) and send users the updated file. Claude Code needs nothing: the launchers ask the server which model it runs.
+```bash
+cd ~/llm-bench/lab_server
+bash switch_model.sh                    # the models it knows, which one is set, which one runs, which are downloaded
+bash switch_model.sh qwen3-coder-next   # download if needed, stop vLLM, start it on that model, wait until it answers
+bash switch_model.sh default            # back to the model in vllm.env (Qwen3.6-27B)
+```
 
-Current model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B NVFP4 (faster, a bit weaker on our tasks). Going back is a matter of swapping the lines in `vllm.env`.
+- Run it from your tmux, like `serve_vllm.sh`. Users connected at that moment lose their current request; tell them first.
+- If the new model does not start, the script says so and prints the command to go back to the previous one.
+- `--no-start` only records the choice, for the next `serve_vllm.sh`.
+- The choice is saved in `~/llm-bench/model.env`, outside `lab_server/`, so redeploying the scripts doesn't undo it.
+- Claude Code users need nothing: the launchers ask the server which model it runs. OpenCode needs the model's name in `client/opencode.json` (the models in `models.conf` are all there).
+
+To add a model: add a line to `models.conf` (name, Hugging Face repo, tool-call parser, extra vLLM arguments, a note), add the name to `client/opencode.json`, redeploy, then `bash switch_model.sh <name>`.
+
+Default model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B NVFP4 (faster, a bit weaker on our tasks).
 
 ## The key
 
