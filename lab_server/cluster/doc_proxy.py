@@ -1,7 +1,7 @@
 """Small proxy in front of vLLM on tassan: makes PDFs readable by the lab model.
 
-When Claude Code reads a PDF (Read tool, @file.pdf, drag and drop), it sends it as an Anthropic
-`document` content block. vLLM's /v1/messages doesn't accept that block type and rejects the whole
+When a PDF is attached to a message (for example @file.pdf), Claude Code can send it as an Anthropic
+`document` content block (its Read tool sends page images instead, which vLLM accepts). vLLM's /v1/messages doesn't accept that block type and rejects the whole
 request with a 400; since the PDF stays in the history, every later request of the session fails too
 (issue #4). This proxy rewrites each `document` block into blocks vLLM accepts:
   - the text of every page (pypdfium2),

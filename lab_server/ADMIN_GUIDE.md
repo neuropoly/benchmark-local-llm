@@ -32,7 +32,7 @@ tail -f ~/llm-bench/logs/vllm.log
 
 ## PDFs (the proxy in front of vLLM)
 
-When Claude Code reads a PDF (Read tool, `@paper.pdf`, drag and drop), it sends it as an Anthropic `document` block. vLLM doesn't accept that block type (not in 0.32 nor on its main branch yet) and rejects the request with `400 ... 'document'`; the PDF stays in the history, so the whole session is stuck (issue #4). A small proxy fixes it:
+When the agent opens a PDF with its Read tool, Claude Code sends the pages as images, which vLLM accepts. But a PDF attached to a message (for example with `@paper.pdf`) can go as an Anthropic `document` block instead. vLLM doesn't accept that block type (not in 0.32 nor on its main branch yet) and rejects the request with `400 ... 'document'`; the PDF stays in the history, so the whole session is stuck (issue #4). A small proxy fixes it:
 
 ```
 clients --tunnel--> 127.0.0.1:8000  doc_proxy.py  --> 127.0.0.1:8010  vLLM
@@ -43,6 +43,7 @@ clients --tunnel--> 127.0.0.1:8000  doc_proxy.py  --> 127.0.0.1:8010  vLLM
 - Everything else goes through untouched, streaming included. A converted PDF is cached, so the same PDF coming back on every turn of a session is converted once.
 - `setup_vllm.sh` installs it (its own small venv, `~/llm-bench/proxy-venv`; it reads PDFs with pypdfium2). `serve_vllm.sh` starts it in the tmux session `doc-proxy`, `stop_vllm.sh` stops it, `status.sh` shows it. Log: `~/llm-bench/logs/doc-proxy.log` (one line per converted PDF).
 - Clients see no change: the tunnel still goes to port 8000.
+- To check it end to end, send a PDF as a `document` block yourself: `~/llm-bench/proxy-venv/bin/python check_pdf.py paper.pdf "What does Figure 1 show?"`. It prints the model's answer, and `doc-proxy.log` gets a "converted PDF" line.
 - If the proxy itself causes trouble, `DOC_PROXY=0` in `vllm.env` and a restart put vLLM back on port 8000 directly (PDFs then fail again).
 
 ## Changing the model
