@@ -19,5 +19,12 @@ if [ -s "$LLMBENCH/vllm.key" ] && curl -sf -H "Authorization: Bearer $(cat "$LLM
 else
     echo "down"
 fi
+if [ "${DOC_PROXY:-0}" = 1 ]; then
+    if tmux has-session -t doc-proxy 2>/dev/null; then
+        echo "PDF proxy up on 127.0.0.1:$PORT, vLLM behind it on 127.0.0.1:$VLLM_PORT (log: $LLMBENCH/logs/doc-proxy.log)"
+    else
+        echo "PDF proxy not running: PDFs fail (restart: bash stop_vllm.sh && bash serve_vllm.sh)"
+    fi
+fi
 echo "== Ollama"
 curl -sf http://127.0.0.1:11434/api/ps 2>/dev/null || echo "down"
