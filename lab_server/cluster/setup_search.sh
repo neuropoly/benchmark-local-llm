@@ -51,7 +51,8 @@ fi
 
 echo "== MCP server"
 [ -x "$MCP_VENV/bin/python" ] || uv venv -q --python 3.12 "$MCP_VENV"
-uv pip install -q --python "$MCP_VENV/bin/python" "mcp>=1.10" httpx trafilatura uvicorn
+# mcp 2.x renamed FastMCP (search_mcp.py uses the 1.x API)
+uv pip install -q --python "$MCP_VENV/bin/python" "mcp>=1.10,<2" httpx trafilatura uvicorn
 
 [ -s "$LLMBENCH/vllm.key" ] || echo "Note: no lab key yet ($LLMBENCH/vllm.key): setup_vllm.sh creates it, the MCP server needs it."
 echo "Done. Next: bash $HERE/serve_search.sh   (serve_vllm.sh also starts it)"
