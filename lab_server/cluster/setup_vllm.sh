@@ -36,6 +36,13 @@ fi
 for pkg in nvidia-cuda-runtime nvidia-cuda-nvcc nvidia-cuda-crt nvidia-nvvm; do echo "  $pkg $(cuda_ver "$pkg")"; done
 "$VENV/bin/python" -c "import vllm, torch; print('vllm', vllm.__version__, '| torch', torch.__version__, '| cuda ok:', torch.cuda.is_available())"
 
+# The PDF proxy in front of vLLM (doc_proxy.py): its own small venv. pypdfium2 reads the PDFs
+# (Apache/BSD licensed, unlike PyMuPDF which is AGPL).
+PROXY_VENV=$LLMBENCH/proxy-venv
+echo "== PDF proxy venv ($PROXY_VENV)"
+[ -x "$PROXY_VENV/bin/python" ] || uv venv -q --python 3.12 "$PROXY_VENV"
+uv pip install -q --python "$PROXY_VENV/bin/python" starlette uvicorn httpx pypdfium2 pillow
+
 echo "== downloading $MODEL into $HF_HOME"
 time "$VENV/bin/hf" download "$MODEL"
 

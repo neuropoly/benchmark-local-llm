@@ -14,10 +14,18 @@ nvidia-smi --query-compute-apps=gpu_bus_id,pid,used_memory --format=csv,noheader
 done
 echo "== vLLM"
 if [ -s "$LLMBENCH/vllm.key" ] && curl -sf -H "Authorization: Bearer $(cat "$LLMBENCH/vllm.key")" "http://127.0.0.1:$PORT/v1/models" -o /dev/null; then
-    echo "up on 127.0.0.1:$PORT"
+    echo "up on 127.0.0.1:$PORT, serving $(curl -s -H "Authorization: Bearer $(cat "$LLMBENCH/vllm.key")" "http://127.0.0.1:$PORT/v1/models" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"][0]["id"])' 2>/dev/null) (switch: bash switch_model.sh)"
     curl -s "http://127.0.0.1:$PORT/metrics" | grep -E '^vllm:(num_requests_running|num_requests_waiting|kv_cache_usage_perc|gpu_cache_usage_perc)' || true
 else
     echo "down"
+fi
+if [ "${DOC_PROXY:-0}" = 1 ]; then
+    if tmux has-session -t doc-proxy 2>/dev/null; then
+        echo "PDF proxy up on 127.0.0.1:$PORT, vLLM behind it on 127.0.0.1:$VLLM_PORT (log: $LLMBENCH/logs/doc-proxy.log)"
+    else
+        echo "PDF proxy not running: PDFs fail (restart: bash stop_vllm.sh && bash serve_vllm.sh)"
+    fi
 fi
 echo "== Web search (MCP for the agents)"
 if [ ! -x "$LLMBENCH/search/mcp-venv/bin/python" ]; then

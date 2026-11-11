@@ -8,9 +8,20 @@ source "$HERE/tmux_lib.sh"
 SESSION=vllm
 KEY=$LLMBENCH/vllm.key
 LOG=$LLMBENCH/logs/vllm.log
+# With the PDF proxy (doc_proxy.py, see vllm.env), clients keep using PORT: the proxy listens there and
+# vLLM moves to VLLM_PORT. Without it (DOC_PROXY=0, or not installed), vLLM listens on PORT itself.
+PROXY_PY=$LLMBENCH/proxy-venv/bin/python
+VLLM_LISTEN=$PORT
+if [ "${DOC_PROXY:-0}" = 1 ]; then
+    if [ -x "$PROXY_PY" ]; then VLLM_LISTEN=$VLLM_PORT
+    else echo "Note: the PDF proxy is not installed (bash $HERE/setup_vllm.sh installs it): PDFs will fail."; fi
+fi
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     echo "vLLM already running (tmux session '$SESSION'). Stop it first: bash $HERE/stop_vllm.sh"
+    if [ "$VLLM_LISTEN" != "$PORT" ] && ! tmux has-session -t doc-proxy 2>/dev/null; then
+        echo "It runs without the PDF proxy: restart it to add it (stop_vllm.sh, then serve_vllm.sh)."
+    fi
     exit 0
 fi
 [ -x "$LLMBENCH/vllm-venv/bin/vllm" ] || { echo "vLLM not installed, run setup_vllm.sh first"; exit 1; }
@@ -35,16 +46,23 @@ echo "CUDA toolkit for FlashInfer: $CUDA_HOME ($("$NVCC" --version | grep -o 're
 
 CMD="export CUDA_VISIBLE_DEVICES=$GPU HF_HOME=$HF_HOME CUDA_DEVICE_ORDER=PCI_BUS_ID \
 CUDA_HOME=$CUDA_HOME PATH=$CUDA_HOME/bin:\$PATH MAX_JOBS=${JIT_JOBS:-4} VLLM_API_KEY=\$(cat $KEY); source $LLMBENCH/vllm-venv/bin/activate; exec vllm serve $MODEL \
---served-model-name $SERVED_NAME --host 127.0.0.1 --port $PORT --max-model-len $MAX_MODEL_LEN \
+--served-model-name $SERVED_NAME --host 127.0.0.1 --port $VLLM_LISTEN --max-model-len $MAX_MODEL_LEN \
 --gpu-memory-utilization $GPU_UTIL --max-num-seqs $MAX_NUM_SEQS --enable-prefix-caching \
 --enable-auto-tool-choice --tool-call-parser $TOOL_PARSER $EXTRA_ARGS"
 echo "=== $(date -Is) start $MODEL as $SERVED_NAME on GPU $GPU ($SLOT_CMD)" >> "$LOG"
 start_session "$SESSION" "$LOG" "$CMD"
+if [ "$VLLM_LISTEN" != "$PORT" ] && ! tmux has-session -t doc-proxy 2>/dev/null; then
+    # Started right away: it answers 503 until vLLM is up, and the wait below goes through it.
+    echo "=== $(date -Is) start PDF proxy on 127.0.0.1:$PORT -> vLLM on $VLLM_LISTEN" >> "$LLMBENCH/logs/doc-proxy.log"
+    start_session doc-proxy "$LLMBENCH/logs/doc-proxy.log" \
+        "export DOC_PROXY_PORT=$PORT VLLM_URL=http://127.0.0.1:$VLLM_LISTEN PDF_PAGE_IMAGES=${PDF_PAGE_IMAGES:-auto} \
+MODEL=$MODEL HF_HOME=$HF_HOME; exec $PROXY_PY $HERE/doc_proxy.py"
+fi
 # Ctrl+C while waiting: don't leave a half-started server behind. A dropped SSH (HUP) leaves it
 # starting in tmux on purpose: the first start compiles kernels for a long time.
 trap 'echo; echo "interrupted, stopping vLLM"; bash "$HERE/stop_vllm.sh"; exit 130' INT TERM
 
-echo "Starting $MODEL on GPU $GPU, port $PORT (first start: weight loading + compilation, several minutes)"
+echo "Starting $MODEL on GPU $GPU, port $VLLM_LISTEN$([ "$VLLM_LISTEN" != "$PORT" ] && echo ", behind the PDF proxy on $PORT") (first start: weight loading + compilation, several minutes)"
 for i in $(seq 1 $((${STARTUP_TIMEOUT:-2700} / 5))); do
     if curl -sf -H "Authorization: Bearer $(cat "$KEY")" "http://127.0.0.1:$PORT/v1/models" >/dev/null; then
         echo "Ready after $((i * 5)) s:"

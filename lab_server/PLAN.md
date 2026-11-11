@@ -8,7 +8,9 @@ lab_server/
   PLAN.md                this runbook
   USER_GUIDE.md          one page for lab members
   cluster/               copied to tassan:~/llm-bench/lab_server/ by deploy-tassan.ps1
-    vllm.env             model, GPU (card 1), set_slot command, port, limits (edit here, nothing else)
+    vllm.env             default model, GPU (card 1), set_slot command, port, limits
+    models.conf          the models switch_model.sh can serve
+    switch_model.sh      change the served model (choice saved in ~/llm-bench/model.env)
     tmux_lib.sh          start/stop a server in its own tmux session (set_slot first, session closes with the server)
     preflight.sh         read-only check: tools, set_slot, our card free, disk, network, running servers
     serve_ollama.sh      start the round-2 Ollama in tmux "ollama" on our card (+ 64k "-cc" variant)
@@ -16,7 +18,8 @@ lab_server/
     setup_vllm.sh        one-time: uv + vLLM venv + weights + API key
     serve_vllm.sh        start in tmux "vllm", wait until it answers
     stop_vllm.sh         stop, close the tmux session, kill leftovers, give the card back
-    status.sh            servers, GPU memory, live running/waiting requests, web search
+    doc_proxy.py         proxy on PORT in front of vLLM: PDF "document" blocks -> page text + page images
+    status.sh            servers, GPU memory, live running/waiting requests, PDF proxy, web search
     setup_search.sh      one-time: SearXNG + the web search MCP server, in venvs under ~/llm-bench/search
     serve_search.sh      start SearXNG (tmux "searxng") and the MCP (tmux "search-mcp"); serve_vllm.sh calls it
     stop_search.sh       stop both

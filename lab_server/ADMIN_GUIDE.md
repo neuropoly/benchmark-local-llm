@@ -30,6 +30,22 @@ tail -f ~/llm-bench/logs/vllm.log
 - **After a tassan reboot**, the server is not restarted automatically: run `bash serve_vllm.sh` again.
 - A normal start takes a few minutes (loading the weights, compiling, warming up).
 
+## PDFs (the proxy in front of vLLM)
+
+When the agent opens a PDF with its Read tool, Claude Code sends the pages as images, which vLLM accepts. But a PDF attached to a message (for example with `@paper.pdf`) can go as an Anthropic `document` block instead. vLLM doesn't accept that block type (not in 0.32 nor on its main branch yet) and rejects the request with `400 ... 'document'`; the PDF stays in the history, so the whole session is stuck (issue #4). A small proxy fixes it:
+
+```
+clients --tunnel--> 127.0.0.1:8000  doc_proxy.py  --> 127.0.0.1:8010  vLLM
+                    (PORT)          document blocks -> page text + page images   (VLLM_PORT)
+```
+
+- Each PDF becomes the text of its pages, plus an image of the pages that have figures, vector plots or almost no text (scans), at most 12 per PDF. Images are sent only if the model has a vision encoder (Qwen3.6-27B does, the 80B coder doesn't): `PDF_PAGE_IMAGES=auto` in `vllm.env` checks the model's `config.json`.
+- Everything else goes through untouched, streaming included. A converted PDF is cached, so the same PDF coming back on every turn of a session is converted once.
+- `setup_vllm.sh` installs it (its own small venv, `~/llm-bench/proxy-venv`; it reads PDFs with pypdfium2). `serve_vllm.sh` starts it in the tmux session `doc-proxy`, `stop_vllm.sh` stops it, `status.sh` shows it. Log: `~/llm-bench/logs/doc-proxy.log` (one line per converted PDF).
+- Clients see no change: the tunnel still goes to port 8000.
+- To check it end to end, send a PDF as a `document` block yourself: `~/llm-bench/proxy-venv/bin/python check_pdf.py paper.pdf "What does Figure 1 show?"`. It prints the model's answer, and `doc-proxy.log` gets a "converted PDF" line.
+- If the proxy itself causes trouble, `DOC_PROXY=0` in `vllm.env` and a restart put vLLM back on port 8000 directly (PDFs then fail again).
+
 ## Web search for the agents
 
 Claude Code's own WebSearch runs on Anthropic's servers, so it can't work with the lab model (it fails with `400 ... input_schema`). Instead, tassan runs its own search, which the launchers plug into Claude Code and OpenCode through the same tunnel:
@@ -47,12 +63,22 @@ agent on a laptop --tunnel, port 8002--> lab-search MCP server (search_mcp.py) -
 
 ## Changing the model
 
-1. In `vllm.env`, change `MODEL`, `SERVED_NAME`, `TOOL_PARSER` and `EXTRA_ARGS` together. Tested setups are listed there as comments.
-2. `bash setup_vllm.sh` downloads the new weights (it skips what is already installed).
-3. `bash stop_vllm.sh && bash serve_vllm.sh`
-4. If `SERVED_NAME` is new, add it to `client/opencode.json` (copy an existing model entry) and send users the updated file. Claude Code needs nothing: the launchers ask the server which model it runs.
+```bash
+cd ~/llm-bench/lab_server
+bash switch_model.sh                    # the models it knows, which one is set, which one runs, which are downloaded
+bash switch_model.sh qwen3-coder-next   # download if needed, stop vLLM, start it on that model, wait until it answers
+bash switch_model.sh default            # back to the model in vllm.env (Qwen3.6-27B)
+```
 
-Current model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B NVFP4 (faster, a bit weaker on our tasks). Going back is a matter of swapping the lines in `vllm.env`.
+- Run it from your tmux, like `serve_vllm.sh`. Users connected at that moment lose their current request; tell them first.
+- If the new model does not start, the script says so and prints the command to go back to the previous one.
+- `--no-start` only records the choice, for the next `serve_vllm.sh`.
+- The choice is saved in `~/llm-bench/model.env`, outside `lab_server/`, so redeploying the scripts doesn't undo it.
+- Claude Code users need nothing: the launchers ask the server which model it runs. OpenCode needs the model's name in `client/opencode.json` (the models in `models.conf` are all there).
+
+To add a model: add a line to `models.conf` (name, Hugging Face repo, tool-call parser, extra vLLM arguments, a note), add the name to `client/opencode.json`, redeploy, then `bash switch_model.sh <name>`.
+
+Default model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B NVFP4 (faster, a bit weaker on our tasks).
 
 ## The key
 
@@ -77,6 +103,7 @@ Current model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B
 - **A first start with a new model or vLLM version compiles GPU kernels** (FlashInfer): from minutes to over an hour, in `~/.cache/flashinfer`, done once. Keep `JIT_JOBS` at 4 or less: each compiler can take 5 to 7 GB of RAM and the slot has about 46 GB. With 8 jobs, the first 80B start stalled for 3 hours.
 - **Compiler errors** (`CUDA compiler and CUDA toolkit headers are incompatible`, `Unsupported .version`): the CUDA compiler packages in the venv don't match the runtime. `bash setup_vllm.sh` realigns them.
 - **Tool calls come back as text:** check `TOOL_PARSER` in `vllm.env`.
+- **Users get `400 ... 'document'` when a PDF is read:** the PDF proxy is not running (`status.sh` says so). If `serve_vllm.sh` printed "the PDF proxy is not installed", run `bash setup_vllm.sh`, then `bash stop_vllm.sh && bash serve_vllm.sh`. A PDF that fails to convert shows as a one-line note in the conversation; details in `~/llm-bench/logs/doc-proxy.log`.
 - **The agents say "no web search this session":** `bash status.sh` shows which part is down; `bash serve_search.sh` restarts it and says which log to read. If searches return nothing, look for engine errors or CAPTCHAs in `~/llm-bench/logs/searxng.log`.
 
 ## Updating the scripts
