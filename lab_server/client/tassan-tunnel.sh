@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SSH tunnel to the lab servers on tassan (macOS/Linux version of tassan-tunnel.ps1).
-#   vLLM   tassan 127.0.0.1:8000  -> here 127.0.0.1:8001
+#   model  tassan 127.0.0.1:8000  -> here 127.0.0.1:8001   (the PDF proxy, vLLM behind it)
 #   Ollama tassan 127.0.0.1:11434 -> here 127.0.0.1:11435
 #   web search MCP tassan 127.0.0.1:8002 -> here 127.0.0.1:8002
 # The launchers (claude-tassan.sh, opencode-tassan.sh) open and close it by themselves, so this is only

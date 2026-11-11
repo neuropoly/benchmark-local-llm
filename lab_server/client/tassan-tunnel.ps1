@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Forwards (bound to 127.0.0.1 on both sides, nothing exposed on the network):
-    127.0.0.1:8001   -> tassan vLLM   127.0.0.1:8000
+    127.0.0.1:8001   -> tassan model  127.0.0.1:8000   (the PDF proxy, vLLM behind it)
     127.0.0.1:11435  -> tassan Ollama 127.0.0.1:11434   (11435 so a local Ollama on 11434 keeps working)
     127.0.0.1:8002   -> tassan web search MCP 127.0.0.1:8002 (used by claude-tassan.ps1 and opencode.json)
   Needs the Polytechnique VPN and your own tassan login.

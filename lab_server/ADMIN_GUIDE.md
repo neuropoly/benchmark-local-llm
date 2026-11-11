@@ -2,15 +2,28 @@
 
 For whoever runs the server. Lab members only need `USER_GUIDE.md`. The full setup history and benchmarks are in `PLAN.md`.
 
-Everything lives in the home of the account that runs it (`~/llm-bench`): no root, nothing system-wide. The server runs vLLM on **GPU 1**, inside `set_slot 1` (lab rule), listening on `127.0.0.1:8000` of tassan only, behind an API key. Users reach it through SSH tunnels.
+Everything lives in the home of the account that runs it (`~/llm-bench`): no root, nothing system-wide. The server runs vLLM on **GPU 1**, inside `set_slot 1` (lab rule), behind an API key. Every port listens on `127.0.0.1` of tassan only; users reach them through SSH tunnels.
+
+| tassan port | what | laptop side (tunnel) |
+|---|---|---|
+| 8000 (`PORT`) | the PDF proxy (`doc_proxy.py`): what every client talks to | 8001 |
+| 8010 (`VLLM_PORT`) | vLLM itself, behind the proxy (on 8000 directly if `DOC_PROXY=0`) | not forwarded |
+| 8002 (`SEARCH_MCP_PORT`) | the web search MCP server | 8002 |
+| 8888 (`SEARXNG_PORT`) | SearXNG, only the MCP server queries it | not forwarded |
+| 11434 | Ollama (round 2, off by default) | 11435 |
+
+They are set in `vllm.env`; the client scripts have 8000 and 8002 written in, so change both sides together.
 
 ```
 ~/llm-bench/
   lab_server/     the scripts below (vllm.env is the only file to edit)
   vllm-venv/      vLLM 0.31.0 + its own CUDA 13.2 compiler
+  proxy-venv/     the PDF proxy's venv
+  search/         SearXNG and the web search MCP server (setup_search.sh)
   hf/             model weights
   vllm.key        the lab API key
-  logs/vllm.log   server log
+  model.env       the model chosen with switch_model.sh, if any
+  logs/           vllm.log, doc-proxy.log, searxng.log, search-mcp.log
 ```
 
 Book `gpu[1]` on the lab calendar while the server runs (see the intranet page on resource sharing).

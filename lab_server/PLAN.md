@@ -40,7 +40,7 @@ lab_server/
 
 Card and tmux: everything runs on GPU 1 (`GPU=1` in `vllm.env`). Each server gets its own tmux session in which the scripts type `set_slot 1; exit` (set_slot opens a new shell confined to slot 1: ~46 GB RAM, 20 cores), then, in that shell, check the slot, export `CUDA_VISIBLE_DEVICES=1` (set_slot doesn't), activate the venv and `exec` the server. So the session closes by itself when the server stops. Lab rules: https://intranet.neuro.polymtl.ca/computing-resources/neuropoly/resource-sharing.html (book `gpu[1]` on the lab calendar). The stop scripts also kill leftover processes. Setup and benchmark sessions close when the script ends; output stays in `~/llm-bench/logs/`.
 
-Ports: tassan vLLM `127.0.0.1:8000` -> laptop `127.0.0.1:8001`; tassan Ollama `127.0.0.1:11434` -> laptop `127.0.0.1:11435`.
+Ports: tassan PDF proxy `127.0.0.1:8000` (vLLM behind it on `8010`) -> laptop `127.0.0.1:8001`; tassan web search MCP `8002` -> laptop `8002` (SearXNG on `8888`, not forwarded); tassan Ollama `127.0.0.1:11434` -> laptop `127.0.0.1:11435`.
 
 Status (2026-10-09): Phases 0 to 2 and 5 done, from a Mac. vLLM 0.31.0 runs on tassan GPU 1, first with Qwen3-Coder-Next 80B NVFP4, now Qwen3.6-27B FP8 (better on the 5 ADS tasks, about 3x slower per user, still fine with 8 users). Claude Code and OpenCode both work through the tunnel. Phase 3 (full sweep on tassan) and Phase 4 (lab decisions) are open. Day-to-day operation: `ADMIN_GUIDE.md`; for lab members: `USER_GUIDE.md`.
 
