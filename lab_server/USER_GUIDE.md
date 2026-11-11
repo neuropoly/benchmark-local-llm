@@ -19,6 +19,7 @@ your laptop                                            tassan
 - The **tunnel** forwards port 8001 on your laptop to the server on tassan. It must stay open while you work.
 - The **lab key** is a password shared by the lab: the server refuses requests without it.
 - The **launchers** (`claude-tassan.sh`, `opencode-tassan.sh`) start the agent pointed at the tunnel, with the key and the right settings, for that session only.
+- **Web search:** the agent gets a `web_search` and a `fetch` tool from a search service on tassan (through the same tunnel, port 8002). Claude Code's own WebSearch is turned off, since it only works on Anthropic's servers.
 
 ## What you need
 
@@ -156,7 +157,13 @@ CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384
 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 ```
 
-Unset `ANTHROPIC_API_KEY` if you have one. The three `CLAUDE_CODE_*_TOKENS` lines matter: without them Claude Code doesn't know the server's limit, and long tasks fail with `400 ... maximum context length`.
+Unset `ANTHROPIC_API_KEY` if you have one. The three `CLAUDE_CODE_*_TOKENS` lines matter: without them Claude Code doesn't know the server's limit, and long tasks fail with `400 ... maximum context length`. Also set `CLAUDE_CODE_AUTO_MODE_SERVER=0`: auto mode's server-side checks can't run on the lab server, and without it Claude Code pauses the first action of each session behind a notice.
+
+For web search, forward port 8002 too (`-L 8002:127.0.0.1:8002` in the tunnel), save this as `lab-search.json` with the lab key in it, and start Claude Code with `--disallowedTools WebSearch --mcp-config lab-search.json` (at the end of the command line):
+
+```json
+{"mcpServers": {"lab-search": {"type": "http", "url": "http://127.0.0.1:8002/mcp", "headers": {"Authorization": "Bearer <the lab key>"}}}}
+```
 
 **OpenCode** uses the config file `lab_server/client/opencode.json` (the lab server as a provider named `tassan`, with its context limits). Point OpenCode to it and pick the model:
 
@@ -217,6 +224,8 @@ print(r.choices[0].message.content)
 - **Use a clone, not your only copy,** for big refactors.
 - **PDFs work**, whether the agent opens them or you attach them with `@paper.pdf`. A long PDF uses a lot of context, so point the agent to the pages you care about ("read pages 3 to 6 of paper.pdf").
 - **For a question about a figure, ask it to read that page again** ("read the page with Figure 2 and describe it"). Otherwise it may answer from the caption and its memory of the paper, and invent details such as colors. If it got a figure wrong, start a fresh session (`/clear`) rather than correcting it: it tends to stick to its first answer.
+- **Know what leaves Polytechnique.** Your code and prompts stay on tassan. Web searches and fetched pages don't: the queries go from tassan to search engines (Google, Bing, DuckDuckGo...), and the agent's shell commands (`curl`, `pip install`, `git clone`) run on your laptop. Don't put patient data or anything confidential in a search.
+- **Check what it says it found online.** Without a search that works, a model can fill the gap with plausible inventions. Ask it for the URLs it used.
 
 ## Sharing the GPU
 
@@ -238,4 +247,5 @@ print(r.choices[0].message.content)
 | `400 ... maximum context length` | the agent was started without the lab launcher or settings | use the launcher, or the variables in "Setting it up by hand" |
 | The agent answers in text but never edits files | the model didn't make a tool call | run `tassan-check`; if it shows no tool call, tell Youssef |
 | `API Error: 400 ... 'document'` after reading a PDF | the server's PDF converter is off | tell Youssef. Meanwhile the session is stuck: go back to before the PDF (Esc twice, or `/rewind`) or start over with `/clear` |
+| `Note: no web search this session` | the search service on tassan is off, or your tunnel was opened by hand with an old script (no port 8002) | close the tunnel and let the launcher open it; if it lasts, tell Youssef |
 | Very slow, even for short answers | many people are using it, or a long task is running | wait, or try again later |

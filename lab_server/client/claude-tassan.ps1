@@ -33,10 +33,29 @@ $vars = [ordered]@{
     CLAUDE_CODE_SUBAGENT_MODEL               = $model
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
     CLAUDE_CODE_ATTRIBUTION_HEADER           = '0'     # keeps vLLM prefix caching effective
+    CLAUDE_CODE_AUTO_MODE_SERVER             = '0'     # auto mode's server-side checks can't run on the lab server
     # the server's window (MAX_MODEL_LEN): else Claude Code reserves 32k output and never compacts
     CLAUDE_CODE_MAX_CONTEXT_TOKENS           = "$window"
     CLAUDE_CODE_AUTO_COMPACT_WINDOW          = "$window"
     CLAUDE_CODE_MAX_OUTPUT_TOKENS            = '16384'
+}
+
+# Claude Code's WebSearch runs on Anthropic's servers and only errors with the lab model: turn it off and
+# use the lab-search MCP server on tassan (web_search, fetch) through the tunnel, when it answers.
+# These options take several values, so they go after the user's arguments.
+$extra = @('--disallowedTools', 'WebSearch')
+$mcpCode = $null
+try { Invoke-WebRequest -Method Post 'http://127.0.0.1:8002/mcp' -TimeoutSec 5 -UseBasicParsing | Out-Null; $mcpCode = 200 }
+catch { if ($_.Exception.Response) { $mcpCode = [int]$_.Exception.Response.StatusCode } }
+if ($mcpCode -eq 401) {   # up, and asking for the lab key
+    $dir = Join-Path $HOME '.tassan'
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $mcpFile = Join-Path $dir 'mcp.json'
+    $json = @{ mcpServers = @{ 'lab-search' = @{ type = 'http'; url = 'http://127.0.0.1:8002/mcp'; headers = @{ Authorization = "Bearer $token" } } } } | ConvertTo-Json -Depth 5
+    [IO.File]::WriteAllText($mcpFile, $json, (New-Object Text.UTF8Encoding $false))   # no BOM
+    $extra += @('--mcp-config', $mcpFile)
+} else {
+    Write-Host 'Note: no web search this session (nothing answers on 127.0.0.1:8002: tunnel without it, or search off on tassan).' -ForegroundColor Yellow
 }
 
 $saved = @{}
@@ -49,7 +68,7 @@ Write-Host "Claude Code -> tassan $Backend ($model) at $base" -ForegroundColor C
 try {
     # claude prints a benign stderr warning with a custom auth token; with 'Stop' it would be fatal.
     $ErrorActionPreference = 'Continue'
-    & claude --model $model @ClaudeArgs
+    & claude --model $model @ClaudeArgs @extra
 }
 finally {
     foreach ($name in $vars.Keys) {

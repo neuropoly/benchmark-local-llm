@@ -38,4 +38,4 @@ echo "== servers"
 tmux ls 2>/dev/null | sed 's/^/  tmux: /' || echo "  no tmux sessions"
 left=$(pgrep -a -u "$USER" -f 'vllm serve|VLLM::EngineCore|ollama (serve|runner)')
 [ -n "$left" ] && { warn "server processes of ours still running (stop_vllm.sh / stop_ollama.sh clean them up):"; echo "$left" | sed 's/^/    /'; }
-ss -ltn 2>/dev/null | grep -E ':(8000|11434) ' | sed 's/^/  listening: /' || true
+ss -ltn 2>/dev/null | grep -E ':(8000|8010|8002|8888|11434) ' | sed 's/^/  listening: /' || true

@@ -2,15 +2,28 @@
 
 For whoever runs the server. Lab members only need `USER_GUIDE.md`. The full setup history and benchmarks are in `PLAN.md`.
 
-Everything lives in the home of the account that runs it (`~/llm-bench`): no root, nothing system-wide. The server runs vLLM on **GPU 1**, inside `set_slot 1` (lab rule), listening on `127.0.0.1:8000` of tassan only, behind an API key. Users reach it through SSH tunnels.
+Everything lives in the home of the account that runs it (`~/llm-bench`): no root, nothing system-wide. The server runs vLLM on **GPU 1**, inside `set_slot 1` (lab rule), behind an API key. Every port listens on `127.0.0.1` of tassan only; users reach them through SSH tunnels.
+
+| tassan port | what | laptop side (tunnel) |
+|---|---|---|
+| 8000 (`PORT`) | the PDF proxy (`doc_proxy.py`): what every client talks to | 8001 |
+| 8010 (`VLLM_PORT`) | vLLM itself, behind the proxy (on 8000 directly if `DOC_PROXY=0`) | not forwarded |
+| 8002 (`SEARCH_MCP_PORT`) | the web search MCP server | 8002 |
+| 8888 (`SEARXNG_PORT`) | SearXNG, only the MCP server queries it | not forwarded |
+| 11434 | Ollama (round 2, off by default) | 11435 |
+
+They are set in `vllm.env`; the client scripts have 8000 and 8002 written in, so change both sides together.
 
 ```
 ~/llm-bench/
   lab_server/     the scripts below (vllm.env is the only file to edit)
   vllm-venv/      vLLM 0.31.0 + its own CUDA 13.2 compiler
+  proxy-venv/     the PDF proxy's venv
+  search/         SearXNG and the web search MCP server (setup_search.sh)
   hf/             model weights
   vllm.key        the lab API key
-  logs/vllm.log   server log
+  model.env       the model chosen with switch_model.sh, if any
+  logs/           vllm.log, doc-proxy.log, searxng.log, search-mcp.log
 ```
 
 Book `gpu[1]` on the lab calendar while the server runs (see the intranet page on resource sharing).
@@ -20,8 +33,8 @@ Book `gpu[1]` on the lab calendar while the server runs (see the intranet page o
 ```bash
 cd ~/llm-bench/lab_server
 bash status.sh          # is it up, GPU memory, requests running/waiting, who is on each card
-bash serve_vllm.sh      # start; returns once it answers ("Ready after N s")
-bash stop_vllm.sh       # stop and free GPU 1
+bash serve_vllm.sh      # start; returns once it answers ("Ready after N s"); starts the web search too
+bash stop_vllm.sh       # stop and free GPU 1 (the web search keeps running: stop_search.sh)
 tail -f ~/llm-bench/logs/vllm.log
 ```
 
@@ -45,6 +58,21 @@ clients --tunnel--> 127.0.0.1:8000  doc_proxy.py  --> 127.0.0.1:8010  vLLM
 - Clients see no change: the tunnel still goes to port 8000.
 - To check it end to end, send a PDF as a `document` block yourself: `~/llm-bench/proxy-venv/bin/python check_pdf.py paper.pdf "What does Figure 1 show?"`. It prints the model's answer, and `doc-proxy.log` gets a "converted PDF" line.
 - If the proxy itself causes trouble, `DOC_PROXY=0` in `vllm.env` and a restart put vLLM back on port 8000 directly (PDFs then fail again).
+
+## Web search for the agents
+
+Claude Code's own WebSearch runs on Anthropic's servers, so it can't work with the lab model (it fails with `400 ... input_schema`). Instead, tassan runs its own search, which the launchers plug into Claude Code and OpenCode through the same tunnel:
+
+```
+agent on a laptop --tunnel, port 8002--> lab-search MCP server (search_mcp.py) --> SearXNG --> Google, Bing, DuckDuckGo, Wikipedia...
+                                         tools: web_search, fetch                 127.0.0.1:8888
+```
+
+- **SearXNG** is an open-source metasearch engine: no API key, no account, nothing sent to an AI company. **search_mcp.py** is our MCP server (about 170 lines): `web_search` queries SearXNG, `fetch` downloads a page from tassan and returns its text. It asks for the lab key, like vLLM, and refuses to fetch local or private addresses (so a web page can't make an agent read services that only listen on tassan).
+- One-time install, no root: `bash setup_search.sh` (SearXNG from git and the MCP server, each in a venv under `~/llm-bench/search/`).
+- `serve_vllm.sh` starts it too, once vLLM is ready, if it is installed. By hand: `bash serve_search.sh` / `bash stop_search.sh` (they don't touch vLLM). It runs in the tmux sessions `searxng` and `search-mcp`, logs in `~/llm-bench/logs/searxng.log` and `search-mcp.log`. `status.sh` shows whether both are up.
+- The launchers check that the search answers before starting the agent; if it doesn't, the agent starts anyway, without web search, and says so.
+- All the lab's searches leave from tassan's address. Under heavy use, Google or Bing may answer with CAPTCHAs; SearXNG then uses the other engines. Its settings are in `~/llm-bench/search/settings.yml` (written once by `setup_search.sh`, kept on later runs).
 
 ## Changing the model
 
@@ -89,6 +117,7 @@ Default model: Qwen3.6-27B FP8 (dense, thinking). Previous: Qwen3-Coder-Next 80B
 - **Compiler errors** (`CUDA compiler and CUDA toolkit headers are incompatible`, `Unsupported .version`): the CUDA compiler packages in the venv don't match the runtime. `bash setup_vllm.sh` realigns them.
 - **Tool calls come back as text:** check `TOOL_PARSER` in `vllm.env`.
 - **Users get `400 ... 'document'` when a PDF is read:** the PDF proxy is not running (`status.sh` says so). If `serve_vllm.sh` printed "the PDF proxy is not installed", run `bash setup_vllm.sh`, then `bash stop_vllm.sh && bash serve_vllm.sh`. A PDF that fails to convert shows as a one-line note in the conversation; details in `~/llm-bench/logs/doc-proxy.log`.
+- **The agents say "no web search this session":** `bash status.sh` shows which part is down; `bash serve_search.sh` restarts it and says which log to read. If searches return nothing, look for engine errors or CAPTCHAs in `~/llm-bench/logs/searxng.log`.
 
 ## Updating the scripts
 
